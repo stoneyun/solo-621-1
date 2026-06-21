@@ -1,6 +1,3 @@
-/**
- * 邀请码管理系统 - 前端交互逻辑
- */
 (function ($) {
     'use strict';
 
@@ -18,6 +15,16 @@
         1: { text: '未使用', icon: 'fa-clock-o' },
         2: { text: '已使用', icon: 'fa-check-circle' },
         3: { text: '已过期', icon: 'fa-times-circle' }
+    };
+
+    var ACTION_MAP = {
+        'create': '新增',
+        'update': '编辑',
+        'delete': '删除',
+        'batch': '批量操作',
+        'verify': '核销',
+        'status_change': '状态变更',
+        'export': '导出'
     };
 
     function escapeHtml(str) {
@@ -85,6 +92,62 @@
                'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
     }
 
+    function loadStats() {
+        $.getJSON('api/stats.php', function (res) {
+            if (res.code === 0) {
+                var d = res.data;
+                $('#statTotal').text(d.total);
+                $('#statTodayNew').text(d.today_new);
+                $('#statTodayUsed').text(d.today_used);
+                $('#statExpiring').text(d.expiring_soon);
+                $('#statConversion').text(d.conversion_rate + '%');
+
+                if (d.expiring_soon > 0) {
+                    $('#statExpiring').closest('.stat-card').addClass('has-warning');
+                } else {
+                    $('#statExpiring').closest('.stat-card').removeClass('has-warning');
+                }
+            }
+        });
+    }
+
+    function loadExpiringAlert() {
+        $.getJSON('api/expiring.php', { days: 7 }, function (res) {
+            if (res.code === 0) {
+                var list = res.data.list;
+                var total = res.data.total;
+                if (total > 0) {
+                    $('#expiringAlert').show();
+                    $('#expiringCount').text(total);
+                    renderExpiringList(list);
+                } else {
+                    $('#expiringAlert').hide();
+                }
+            }
+        });
+    }
+
+    function renderExpiringList(list) {
+        var html = '';
+        var max = Math.min(list.length, 10);
+        for (var i = 0; i < max; i++) {
+            var item = list[i];
+            var urgencyClass = item.remaining_hours < 24 ? 'expiring-urgent' : 'expiring-warning';
+            html += '<div class="expiring-item ' + urgencyClass + '">';
+            html += '  <span class="expiring-code"><i class="fa fa-ticket"></i> ' + escapeHtml(item.code) + '</span>';
+            html += '  <span class="expiring-time"><i class="fa fa-clock-o"></i> ' + escapeHtml(item.expire_at) + '</span>';
+            html += '  <span class="expiring-remaining">' + escapeHtml(item.remaining_text) + '过期</span>';
+            if (item.remark) {
+                html += '  <span class="expiring-remark">' + escapeHtml(item.remark) + '</span>';
+            }
+            html += '</div>';
+        }
+        if (list.length > 10) {
+            html += '<div class="expiring-more">还有 ' + (list.length - 10) + ' 个即将过期...</div>';
+        }
+        $('#expiringList').html(html);
+    }
+
     function loadList() {
         var params = {
             page: STATE.page,
@@ -128,6 +191,8 @@
         STATE.list.forEach(function (item) {
             var statusInfo = STATUS_MAP[item.status] || STATUS_MAP[1];
             var usedBy = item.used_by ? escapeHtml(item.used_by) : '<span class="text-muted-cell">-</span>';
+            var usedAt = item.used_at ? escapeHtml(item.used_at) : '<span class="text-muted-cell">-</span>';
+            var usedIp = item.used_ip ? '<code>' + escapeHtml(item.used_ip) + '</code>' : '<span class="text-muted-cell">-</span>';
             var remark = item.remark ? escapeHtml(item.remark) : '<span class="text-muted-cell">-</span>';
 
             var row = [
@@ -139,10 +204,13 @@
                 '  <td><span class="status-badge status-' + item.status + '"><i class="fa ' + statusInfo.icon + '"></i> ' + statusInfo.text + '</span></td>',
                 '  <td>' + formatDatetime(item.expire_at) + '</td>',
                 '  <td>' + usedBy + '</td>',
+                '  <td>' + usedAt + '</td>',
+                '  <td>' + usedIp + '</td>',
                 '  <td>' + remark + '</td>',
                 '  <td>' + formatDatetime(item.created_at) + '</td>',
                 '  <td>',
                 '    <div class="action-buttons">',
+                '      <button class="action-btn view-btn" title="查看详情" data-id="' + item.id + '"><i class="fa fa-eye"></i></button>',
                 '      <button class="action-btn copy-btn" title="复制" data-code="' + escapeHtml(item.code) + '"><i class="fa fa-copy"></i></button>',
                 '      <button class="action-btn edit-btn" title="编辑" data-id="' + item.id + '"><i class="fa fa-pencil"></i></button>',
                 '      <button class="action-btn delete-btn" title="删除" data-id="' + item.id + '"><i class="fa fa-trash-o"></i></button>',
@@ -267,7 +335,7 @@
 
     function submitCreate() {
         var auto = $('#autoGenerate').prop('checked');
-        var code = auto ? '' : $.trim($('#createCode').val());
+        var code = auto ? "" : $.trim($('#createCode').val());
         var expireAt = $('#createExpireAt').val();
         var remark = $.trim($('#createRemark').val());
 
@@ -296,6 +364,7 @@
                     toast('添加成功，邀请码：' + res.data.code, 'success');
                     $('#createModal').modal('hide');
                     loadList();
+                    loadStats();
                 } else {
                     toast(res.message || '添加失败', 'error');
                 }
@@ -367,6 +436,7 @@
                     toast('更新成功', 'success');
                     $('#editModal').modal('hide');
                     loadList();
+                    loadStats();
                 } else {
                     toast(res.message || '更新失败', 'error');
                 }
@@ -391,6 +461,7 @@
                         if (res.code === 0) {
                             toast('删除成功', 'success');
                             loadList();
+                            loadStats();
                         } else {
                             toast(res.message || '删除失败', 'error');
                         }
@@ -431,6 +502,7 @@
                         if (res.code === 0) {
                             toast(res.message || '删除成功', 'success');
                             loadList();
+                            loadStats();
                         } else {
                             toast(res.message || '删除失败', 'error');
                         }
@@ -484,6 +556,7 @@
                     $('#batchCreateModal').modal('hide');
                     STATE.page = 1;
                     loadList();
+                    loadStats();
                 } else {
                     toast(res.message || '生成失败', 'error');
                 }
@@ -497,6 +570,113 @@
         });
     }
 
+    function doExport() {
+        var params = [];
+        params.push('keyword=' + encodeURIComponent(STATE.keyword));
+        params.push('status=' + STATE.status);
+        var url = 'api/export.php?' + params.join('&');
+        window.open(url, '_blank');
+        toast('正在导出CSV文件...', 'info');
+    }
+
+    function openDetailModal(id) {
+        $.getJSON('api/detail.php', { id: id }, function (res) {
+            if (res.code === 0) {
+                var d = res.data.detail;
+                var logs = res.data.logs;
+
+                $('#detailCode').text(d.code);
+                $('#detailStatus').html('<span class="status-badge status-' + d.status + '"><i class="fa ' + STATUS_MAP[d.status].icon + '"></i> ' + d.status_text + '</span>');
+                $('#detailExpireAt').text(d.expire_at || '-');
+                $('#detailRemaining').text(d.remaining_text || '-');
+                $('#detailUsedBy').text(d.used_by || '-');
+                $('#detailUsedAt').text(d.used_at || '-');
+                $('#detailUsedIp').text(d.used_ip || '-');
+                $('#detailCreatedAt').text(d.created_at || '-');
+                $('#detailRemark').text(d.remark || '-');
+
+                renderDetailLogs(logs);
+                $('#detailModal').modal('show');
+            } else {
+                toast(res.message || '获取详情失败', 'error');
+            }
+        }).fail(function () {
+            toast('网络错误，请稍后重试', 'error');
+        });
+    }
+
+    function renderDetailLogs(logs) {
+        var $list = $('#detailLogList');
+        $list.empty();
+
+        if (!logs || logs.length === 0) {
+            $list.html('<div class="detail-log-empty">暂无操作日志</div>');
+            return;
+        }
+
+        logs.forEach(function (log) {
+            var actionText = ACTION_MAP[log.action] || log.action;
+            var icon = '';
+            var colorClass = '';
+
+            switch (log.action) {
+                case 'create':
+                    icon = 'fa-plus-circle';
+                    colorClass = 'log-create';
+                    break;
+                case 'update':
+                case 'status_change':
+                    icon = 'fa-pencil';
+                    colorClass = 'log-update';
+                    break;
+                case 'delete':
+                    icon = 'fa-trash-o';
+                    colorClass = 'log-delete';
+                    break;
+                case 'verify':
+                    icon = 'fa-check-circle';
+                    colorClass = 'log-verify';
+                    break;
+                case 'export':
+                    icon = 'fa-download';
+                    colorClass = 'log-export';
+                    break;
+                default:
+                    icon = 'fa-info-circle';
+                    colorClass = 'log-default';
+            }
+
+            var contentPreview = '';
+            if (log.content_arr && typeof log.content_arr === 'object') {
+                if (log.content_arr.code) {
+                    contentPreview = '邀请码: ' + log.content_arr.code;
+                } else if (log.content_arr.id) {
+                    contentPreview = 'ID: ' + log.content_arr.id;
+                }
+            }
+
+            var html = [
+                '<div class="detail-log-item ' + colorClass + '">',
+                '  <div class="detail-log-icon"><i class="fa ' + icon + '"></i></div>',
+                '  <div class="detail-log-body">',
+                '    <div class="detail-log-title">',
+                '      <span class="detail-log-action">' + escapeHtml(actionText) + '</span>',
+                '      <span class="detail-log-title-text">' + escapeHtml(log.title) + '</span>',
+                '    </div>',
+                '    <div class="detail-log-meta">',
+                '      <span><i class="fa fa-clock-o"></i> ' + escapeHtml(log.created_at) + '</span>',
+                '      <span><i class="fa fa-user"></i> ' + escapeHtml(log.admin_name || '系统') + '</span>',
+                '      <span><i class="fa fa-globe"></i> ' + escapeHtml(log.ip || '-') + '</span>',
+                '    </div>',
+                '    ' + (contentPreview ? '<div class="detail-log-content">' + escapeHtml(contentPreview) + '</div>' : ''),
+                '  </div>',
+                '</div>'
+            ].join('');
+
+            $list.append(html);
+        });
+    }
+
     function bindEvents() {
         $('#createBtn').on('click', openCreateModal);
         $('#batchCreateBtn').on('click', openBatchCreateModal);
@@ -504,7 +684,8 @@
         $('#submitCreate').on('click', submitCreate);
         $('#submitEdit').on('click', submitEdit);
         $('#submitBatchCreate').on('click', submitBatchCreate);
-        $('#refreshBtn').on('click', function () { loadList(); toast('已刷新', 'info'); });
+        $('#exportBtn').on('click', doExport);
+        $('#refreshBtn').on('click', function () { loadList(); loadStats(); loadExpiringAlert(); toast('已刷新', 'info'); });
 
         $('#searchBtn').on('click', function () {
             STATE.keyword = $.trim($('#searchInput').val());
@@ -577,6 +758,11 @@
             copyToClipboard(code, $(this));
         });
 
+        $('#tableBody').on('click', '.view-btn', function () {
+            var id = $(this).attr('data-id');
+            openDetailModal(id);
+        });
+
         $('#tableBody').on('click', '.edit-btn', function () {
             var id = $(this).attr('data-id');
             openEditModal(id);
@@ -586,10 +772,24 @@
             var id = $(this).attr('data-id');
             deleteOne(id);
         });
+
+        $('#toggleExpiring').on('click', function () {
+            var $body = $('#expiringBody');
+            var $icon = $(this).find('i');
+            if ($body.is(':visible')) {
+                $body.slideUp(200);
+                $icon.removeClass('fa-chevron-up').addClass('fa-chevron-down');
+            } else {
+                $body.slideDown(200);
+                $icon.removeClass('fa-chevron-down').addClass('fa-chevron-up');
+            }
+        });
     }
 
     $(function () {
         bindEvents();
+        loadStats();
+        loadExpiringAlert();
         loadList();
     });
 

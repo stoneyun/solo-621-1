@@ -93,7 +93,10 @@
             'batch_delete': 'danger',
             'reset_password': 'danger',
             'change_password': 'warning',
-            'view': 'info'
+            'view': 'info',
+            'verify': 'success',
+            'export': 'info',
+            'login_fail': 'danger'
         };
         return map[act] || 'default';
     }

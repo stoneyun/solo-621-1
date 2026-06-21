@@ -79,10 +79,10 @@ CREATE TABLE `admin_logs` (
 
 -- 默认分组
 INSERT INTO `admin_groups` (`name`, `description`, `permissions`) VALUES
-('超级管理员', '拥有所有权限', '["invitation:view","invitation:create","invitation:edit","invitation:delete","invitation:batch","admin:view","admin:create","admin:edit","admin:delete","group:view","group:create","group:edit","group:delete","log:view"]'),
-('操作员', '邀请码日常操作', '["invitation:view","invitation:create","invitation:edit","invitation:batch"]'),
-('审核员', '仅查看和审核', '["invitation:view","invitation:edit"]'),
-('访客', '仅查看权限', '["invitation:view"]');
+('超级管理员', '拥有所有权限', '["invitation:view","invitation:create","invitation:edit","invitation:delete","invitation:batch","apikey:view","apikey:create","apikey:delete","admin:view","admin:create","admin:edit","admin:delete","group:view","group:create","group:edit","group:delete","log:view"]'),
+('操作员', '邀请码日常操作', '["invitation:view","invitation:create","invitation:edit","invitation:batch","apikey:view"]'),
+('审核员', '仅查看和审核', '["invitation:view","invitation:edit","apikey:view"]'),
+('访客', '仅查看权限', '["invitation:view","apikey:view"]');
 
 -- 初始超级管理员 (密码: admin123456)
 INSERT INTO `admins` (`username`, `password`, `real_name`, `group_id`, `is_super`, `status`) VALUES

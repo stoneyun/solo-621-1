@@ -39,6 +39,9 @@ if (!Auth::check()) {
                 <li<?php echo ($current_page === 'invitation') ? ' class="active"' : ''; ?>>
                     <a href="index.php"><i class="fa fa-ticket"></i> 邀请码管理</a>
                 </li>
+                <li<?php echo ($current_page === 'apikey') ? ' class="active"' : ''; ?>>
+                    <a href="apikeys.php" data-permission="apikey:view"><i class="fa fa-key"></i> API密钥</a>
+                </li>
                 <li class="dropdown<?php echo (in_array($current_page, array('admin', 'group'))) ? ' active' : ''; ?>">
                     <a href="javascript:;" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">
                         <i class="fa fa-users"></i> 系统管理 <span class="caret"></span>

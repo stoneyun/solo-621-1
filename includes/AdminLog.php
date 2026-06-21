@@ -113,6 +113,7 @@ class AdminLog
     {
         return array(
             'invitation' => '邀请码',
+            'apikey'     => 'API密钥',
             'admin'      => '管理员',
             'group'      => '分组权限',
             'log'        => '操作日志',
@@ -135,6 +136,8 @@ class AdminLog
             'delete'     => '删除',
             'batch'      => '批量操作',
             'login_fail' => '登录失败',
+            'verify'     => '核销',
+            'export'     => '导出',
         );
     }
 }

@@ -33,20 +33,29 @@ try {
 
     $db = Database::getInstance();
 
-    $record = $db->fetchOne(
-        'SELECT id FROM `invitation_codes` WHERE `id` = :id AND `is_deleted` = 0 LIMIT 1',
+    $oldRecord = $db->fetchOne(
+        'SELECT * FROM `invitation_codes` WHERE `id` = :id AND `is_deleted` = 0 LIMIT 1',
         array(':id' => $id)
     );
-    if (!$record) {
+    if (!$oldRecord) {
         Utils::error('记录不存在或已删除');
     }
+
+    $newUsedBy = $usedBy === '' ? null : $usedBy;
+    $newRemark = $remark === '' ? null : $remark;
 
     $updateData = array(
         'status'    => $status,
         'expire_at' => $expireAt,
-        'used_by'   => $usedBy === '' ? null : $usedBy,
-        'remark'    => $remark === '' ? null : $remark,
+        'used_by'   => $newUsedBy,
+        'remark'    => $newRemark,
     );
+
+    $statusChanged = $oldRecord['status'] != $status;
+    if ($statusChanged && $status == 2 && empty($oldRecord['used_at'])) {
+        $updateData['used_at'] = date('Y-m-d H:i:s');
+        $updateData['used_ip'] = Auth::getClientIp();
+    }
 
     $affected = $db->update(
         'invitation_codes',
@@ -55,9 +64,30 @@ try {
         array(':where_id' => $id)
     );
 
-    AdminLog::record('invitation', 'update', '编辑邀请码', array(
+    $logContent = array(
         'id' => $id,
-    ));
+        'old' => array(
+            'status'    => (int)$oldRecord['status'],
+            'expire_at' => $oldRecord['expire_at'],
+            'used_by'   => $oldRecord['used_by'],
+            'remark'    => $oldRecord['remark'],
+        ),
+        'new' => array(
+            'status'    => $status,
+            'expire_at' => $expireAt,
+            'used_by'   => $newUsedBy,
+            'remark'    => $newRemark,
+        ),
+    );
+
+    if ($statusChanged) {
+        $statusMap = array(1 => '未使用', 2 => '已使用', 3 => '已过期');
+        $oldStatusText = isset($statusMap[$oldRecord['status']]) ? $statusMap[$oldRecord['status']] : '未知';
+        $newStatusText = isset($statusMap[$status]) ? $statusMap[$status] : '未知';
+        AdminLog::record('invitation', 'status_change', "状态变更: {$oldStatusText} → {$newStatusText}", $logContent);
+    }
+
+    AdminLog::record('invitation', 'update', '编辑邀请码', $logContent);
 
     Utils::success('更新成功', array('affected' => $affected));
 } catch (Exception $e) {

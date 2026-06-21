@@ -7,6 +7,54 @@ require_once __DIR__ . '/includes/Utils.php';
 require_once __DIR__ . '/includes/Auth.php';
 require_once __DIR__ . '/includes/layout/header.php';
 ?>
+<div class="stats-row" id="statsRow">
+    <div class="stat-card stat-total">
+        <div class="stat-icon"><i class="fa fa-ticket"></i></div>
+        <div class="stat-body">
+            <div class="stat-value" id="statTotal">-</div>
+            <div class="stat-label">邀请码总数</div>
+        </div>
+    </div>
+    <div class="stat-card stat-today-new">
+        <div class="stat-icon"><i class="fa fa-plus-circle"></i></div>
+        <div class="stat-body">
+            <div class="stat-value" id="statTodayNew">-</div>
+            <div class="stat-label">今日新增</div>
+        </div>
+    </div>
+    <div class="stat-card stat-today-used">
+        <div class="stat-icon"><i class="fa fa-check-circle"></i></div>
+        <div class="stat-body">
+            <div class="stat-value" id="statTodayUsed">-</div>
+            <div class="stat-label">今日已使用</div>
+        </div>
+    </div>
+    <div class="stat-card stat-expiring">
+        <div class="stat-icon"><i class="fa fa-exclamation-triangle"></i></div>
+        <div class="stat-body">
+            <div class="stat-value" id="statExpiring">-</div>
+            <div class="stat-label">即将过期(7天内)</div>
+        </div>
+    </div>
+    <div class="stat-card stat-conversion">
+        <div class="stat-icon"><i class="fa fa-line-chart"></i></div>
+        <div class="stat-body">
+            <div class="stat-value" id="statConversion">-</div>
+            <div class="stat-label">转化率</div>
+        </div>
+    </div>
+</div>
+
+<div class="expiring-alert" id="expiringAlert" style="display:none;">
+    <div class="alert-header">
+        <i class="fa fa-bell"></i> 过期提醒 <span class="alert-badge" id="expiringCount">0</span>个邀请码即将过期
+        <button class="alert-toggle" id="toggleExpiring"><i class="fa fa-chevron-down"></i></button>
+    </div>
+    <div class="alert-body" id="expiringBody" style="display:none;">
+        <div class="expiring-list" id="expiringList"></div>
+    </div>
+</div>
+
 <div class="app-card">
     <div class="card-header">
         <h3><i class="fa fa-list-alt" style="margin-right:6px;color:#1e3a8a;"></i>邀请码列表</h3>
@@ -16,7 +64,7 @@ require_once __DIR__ . '/includes/layout/header.php';
         <div class="toolbar-left">
             <div class="search-input-group">
                 <i class="fa fa-search search-icon"></i>
-                <input type="text" id="searchInput" class="form-control" placeholder="搜索邀请码..." value="">
+                <input type="text" id="searchInput" class="form-control" placeholder="搜索邀请码/使用人/备注..." value="">
             </div>
             <select id="statusFilter" class="form-control" style="width:140px;">
                 <option value="0">全部状态</option>
@@ -29,6 +77,9 @@ require_once __DIR__ . '/includes/layout/header.php';
             </button>
         </div>
         <div class="toolbar-right">
+            <button class="btn btn-success btn-sm" id="exportBtn" data-permission="invitation:view">
+                <i class="fa fa-download"></i> 导出CSV
+            </button>
             <button class="btn btn-danger btn-sm" id="batchDeleteBtn" data-permission="invitation:delete">
                 <i class="fa fa-trash-o"></i> 批量删除
             </button>
@@ -52,9 +103,11 @@ require_once __DIR__ . '/includes/layout/header.php';
                     <th>状态</th>
                     <th>有效期</th>
                     <th>使用人</th>
+                    <th>使用时间</th>
+                    <th>核销IP</th>
                     <th>备注</th>
                     <th>创建时间</th>
-                    <th style="width:160px;">操作</th>
+                    <th style="width:200px;">操作</th>
                 </tr>
             </thead>
             <tbody id="tableBody">
@@ -76,6 +129,69 @@ require_once __DIR__ . '/includes/layout/header.php';
                 <input type="number" id="jumpPage" class="form-control" min="1" value="1">
                 <span>页</span>
                 <button class="btn btn-default btn-sm" id="jumpBtn">GO</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="detailModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+                <h4 class="modal-title"><i class="fa fa-info-circle" style="color:#1e3a8a;"></i> 邀请码详情</h4>
+            </div>
+            <div class="modal-body">
+                <div class="detail-section">
+                    <h5 class="detail-section-title"><i class="fa fa-info-circle"></i> 基本信息</h5>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <span class="detail-label">邀请码</span>
+                            <span class="detail-value" id="detailCode">-</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">状态</span>
+                            <span class="detail-value" id="detailStatus">-</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">有效期</span>
+                            <span class="detail-value" id="detailExpireAt">-</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">剩余时间</span>
+                            <span class="detail-value" id="detailRemaining">-</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">使用人</span>
+                            <span class="detail-value" id="detailUsedBy">-</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">使用时间</span>
+                            <span class="detail-value" id="detailUsedAt">-</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">核销IP</span>
+                            <span class="detail-value" id="detailUsedIp">-</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">创建时间</span>
+                            <span class="detail-value" id="detailCreatedAt">-</span>
+                        </div>
+                        <div class="detail-item detail-item-full">
+                            <span class="detail-label">备注</span>
+                            <span class="detail-value" id="detailRemark">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <h5 class="detail-section-title"><i class="fa fa-history"></i> 操作日志</h5>
+                    <div class="detail-log-list" id="detailLogList">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">关闭</button>
             </div>
         </div>
     </div>

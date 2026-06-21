@@ -313,6 +313,9 @@ class Auth
             'invitation:edit',
             'invitation:delete',
             'invitation:batch',
+            'apikey:view',
+            'apikey:create',
+            'apikey:delete',
             'admin:view',
             'admin:create',
             'admin:edit',
@@ -367,6 +370,14 @@ class Auth
                     'invitation:edit'   => '编辑邀请码',
                     'invitation:delete' => '删除邀请码',
                     'invitation:batch'  => '批量操作',
+                ),
+            ),
+            'apikey' => array(
+                'label' => 'API密钥管理',
+                'items' => array(
+                    'apikey:view'   => '查看API密钥',
+                    'apikey:create' => '添加API密钥',
+                    'apikey:delete' => '删除API密钥',
                 ),
             ),
             'admin' => array(

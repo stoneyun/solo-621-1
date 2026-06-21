@@ -18,7 +18,7 @@ try {
     $params   = array();
 
     if ($keyword !== '') {
-        $where[] = '`code` LIKE :keyword';
+        $where[] = '(`code` LIKE :keyword OR `used_by` LIKE :keyword OR `remark` LIKE :keyword)';
         $params[':keyword'] = '%' . $keyword . '%';
     }
 
@@ -35,7 +35,7 @@ try {
 
     $offset = ($page - 1) * $pageSize;
     $listSql = sprintf(
-        'SELECT `id`, `code`, `status`, `expire_at`, `used_by`, `remark`, `created_at` 
+        'SELECT `id`, `code`, `status`, `expire_at`, `used_by`, `used_at`, `used_ip`, `remark`, `created_at` 
          FROM `invitation_codes` 
          WHERE %s 
          ORDER BY `created_at` DESC 
